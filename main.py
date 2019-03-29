@@ -15,17 +15,21 @@ class App(tk.Tk):
 		tk.Grid.columnconfigure(self, 600, weight=1)
 
 		with open('save.json', 'r') as file:
-			self.data = json.load(file)
+			try:
+				self.data = json.load(file)
+			except:
+				self.data = {}
 		#Generate output in frame
 		self.info_output = tk.Label(self.output_frame, text="READY!")
-		self.hb_output_label = tk.Label(self.output_frame, text="Bienvenu!")
+		self.hb_output_label = tk.Label(self.output_frame, text="Bienvenue!")
 		self.sodium_output_label = tk.Label(self.output_frame, text="Écrivez vos résultats")
 		self.potassium_output_label = tk.Label(self.output_frame, text="et appuyez sur analyze")
-		self.chlore_output_label = tk.Label(self.output_frame, text="pour comprendre vos résultat.")
+		self.chlore_output_label = tk.Label(self.output_frame, text="pour comprendre vos résultats.")
 		self.co2_output_label = tk.Label(self.output_frame, text="Vous pouvez aussi sauvegarder")
-		self.calcium_output_label = tk.Label(self.output_frame, text="et chargez d'anciens résultats")
-		self.phosphore_output_label = tk.Label(self.output_frame, text="en écrivant la date du résultats")
+		self.calcium_output_label = tk.Label(self.output_frame, text="et charger d'anciens résultats")
+		self.phosphore_output_label = tk.Label(self.output_frame, text="en écrivant la date du résultat")
 		self.albumine_output_label = tk.Label(self.output_frame, text="et appuyer sur 'load'")
+		#Setup label's font
 		self.info_output.config(font=("Arial", 25), fg="green")
 		self.hb_output_label.config(font=("Arial", 25))
 		self.sodium_output_label.config(font=("Arial", 25))
@@ -35,6 +39,7 @@ class App(tk.Tk):
 		self.calcium_output_label.config(font=("Arial", 25))
 		self.phosphore_output_label.config(font=("Arial", 25))
 		self.albumine_output_label.config(font=("Arial", 25))
+		#Place labels in output_frame
 		self.info_output.grid(row=0, column=0)
 		self.hb_output_label.grid(row=0, column=1)
 		self.sodium_output_label.grid(row=1, column=1)
@@ -90,8 +95,8 @@ class App(tk.Tk):
 		self.albumine_entry.grid(row=8, column=1)
 
 		#Add today's date to date entry
-		today = dt.datetime.today()
-		today_formated = today.strftime("%Y-%m-%d")
+		today_formated = dt.datetime.today()
+		today_formated = today_formated.strftime("%Y-%m-%d")
 		self.date_entry.insert(0, today_formated)
 
 		#Generate button
@@ -106,35 +111,49 @@ class App(tk.Tk):
 
 	def analyze_sequence(self):
 		"""Launch and drive the analyze sequence"""
+		self.info_output['text'] = 'Analyzing...'
+		self.info_output['fg'] = 'yellow'
 		user_input = self.get_input()
 		user_input = user_input[next(iter(user_input))]
 		print(user_input)
 		result_dict = self.check_difference(user_input)
 		output = self.create_output(result_dict)
 		self.send_output(output)
+		self.info_output['text'] = 'Analyzed!'
+		self.info_output['fg'] = 'green'
 
 	def save_sequence(self):
 		"""Formats the data and adds it to the save"""
 		input_json = self.get_input()
-		if "ERROR" in input_json.values():
-			self.info_output['text'] = 'ERROR!'
+		date = self.date_entry.get()
+
+		try:
+			self.data[date]
+		except KeyError:
+			if "ERROR" in input_json[date].values() or "EMPTY" in input_json[date].values():
+				self.info_output['text'] = 'ERROR!\nAnalyze to see'
+				self.info_output['fg'] = 'red'
+			else:
+				self.data[date] = input_json[date]
+				with open('save.json', 'w') as file:
+					json.dump(self.data, file)
+				self.info_output['text'] = 'Saved!'
+				self.info_output['fg'] = 'green'
 		else:
-			self.data[value[next(iter(values))]] = values[next(iter(values))]
-			with open('save.json', 'w') as file:
-				json.dump(values, file)
-			self.info_output['text'] = 'SAVED!'
+			self.info_output['text'] = 'ERROR!\nDate Already Exist'
+			self.info_output['fg'] = 'red'
 
 	def load_sequence(self):
 		"""Loads the data from the date in the entry"""
-		with open('save.json', 'r') as file:
-			data = json.load(file)
-		date = self.date_entry.get()
-		if data[date]:
-			self.change_entry_values(data[date])
-			self.info_output['text'] = 'LOADED!'
+		date = str(self.date_entry.get())
+		try:
+			self.change_entry_values(self.data[date])
+			self.info_output['text'] = 'Loaded!'
+			self.info_output['fg'] = 'green'
 			self.analyze_sequence()
-		else:
-			self.info_output['text'] = 'ERROR!'
+		except KeyError:
+			self.info_output['text'] = 'ERROR!\nDate Doesn\'t Exist'
+			self.info_output['fg'] = 'red'
 			
 	def change_entry_values(self, values):
 		"""Fast way to change the values of the entry with a dict"""
@@ -200,13 +219,13 @@ class App(tk.Tk):
 	def check_difference(self, input_dict):
 		"""Check difference between input values and reference values"""
 		reference = {
-			"hemoglobine": (140, 180),
-			"sodium": (135, 145),
-			"potassium": (3.5, 5.1),
+			"hemoglobine": (100, 115),
+			"sodium": (130, 145),
+			"potassium": (3.5, 5.5),
 			"chlore": (98, 110),
 			"co2": (21, 31),
-			"calcium": (2.11, 2.55),
-			"phosphore": (0.80, 1.45),
+			"calcium": (2.01, 2.55),
+			"phosphore": (1.01, 1.70),
 			"albumine": (35, 50)
 		}
 
@@ -251,25 +270,25 @@ class App(tk.Tk):
 		for key, value in some_dict.items():
 			if value == "HIGHER":
 				self.change_output_color(key, "RED")
-				output_list.append("^^Votre "+key +" est en haut de la limite suggéré.")
+				output_list.append("^^Votre " + key + " est en haut de la limite suggéré.")
 			elif value == "HIGH":
 				self.change_output_color(key, "orange")
-				output_list.append("^Votre "+key +" est légèrement en haut de la limite suggéré.")
+				output_list.append("^Votre " + key + " est légèrement en haut de la limite suggéré.")
 			elif value == "NORMAL":
 				self.change_output_color(key, "green")
-				output_list.append("-Votre "+key +" est dans les normes!")
+				output_list.append("-Votre " + key + " est dans les normes!")
 			elif value == "LOW":
 				self.change_output_color(key, "orange")
-				output_list.append("_Votre "+key +" est légèrement en bas de la limite suggéré.")
+				output_list.append("_Votre " + key + " est légèrement en bas de la limite suggéré.")
 			elif value == "LOWER":
 				self.change_output_color(key, "red")
-				output_list.append("__Votre "+key +" est en bas de la limite suggéré.")
+				output_list.append("__Votre " + key + " est en bas de la limite suggéré.")
 			elif value == "EMPTY":
 				self.change_output_color(key, "grey")
-				output_list.append("Votre "+key+" est vide.")
+				output_list.append("Votre " + key + " est vide.")
 			elif value == "ERROR":
 				self.change_output_color(key, "grey")
-				output_list.append("*Il y a une erreur avec votre "+key)
+				output_list.append("*Il y a une erreur avec votre " + key)
 		return output_list
 
 	def change_output_color(self, key, color):
@@ -304,6 +323,7 @@ class App(tk.Tk):
 
 my_app = App()
 my_app.title("Blood result analyzer")
+my_app.geometry("1320x400")
 my_app.mainloop()
 
 
